@@ -1,21 +1,40 @@
-import express from "express";
-import ffmpeg from "fluent-ffmpeg";
+import express, { Request, Response, NextFunction } from 'express';
+import { convertVideo, downloadRawVideo, setupDirectories, uploadProcessedVideo, deleteRawVideo, deleteProcessedVideo } from "./storage";
+
+setupDirectories();
 
 const app = express();
 app.use(express.json());
 
-app.post("/process-video", (req, res) => {
-    // Get path of the input video file from request body
-    const inputFilePath = req.body.inputFilePath;
-    const outputFilePath = req.body.outputFilePath;
 
-    if (!inputFilePath) {
-        res.status(400).send("Bad Request: Missing input file path.");
+// WORK COMMENT - this part needed excessive fixing due to wrong '(req, res)' handling. If there are any problems in the future consider checking this part.
+app.post(
+  '/process-video',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const message = Buffer.from(req.body.message.data, 'base64').toString();
+      const data = JSON.parse(message);
+      if (!data.name) throw new Error('Brak nazwy pliku');
+
+      const inputFileName = data.name;
+      const outputFileName = `processed-${inputFileName}`;
+
+      await downloadRawVideo(inputFileName);
+      await convertVideo(inputFileName, outputFileName);
+      await uploadProcessedVideo(outputFileName);
+
+      // sprzątanie
+      await Promise.all([
+        deleteRawVideo(inputFileName),
+        deleteProcessedVideo(outputFileName)
+      ]);
+
+      res.status(200).send('Processing finished successfully.');
+    } catch (err) {
+      next(err);
     }
-    else if (!outputFilePath) {
-        res.status(400).send("Bad Request: Missing output file path.");
-    }
-});
+  }
+);
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
