@@ -4,20 +4,23 @@ FROM node:18
 # Set the working directory in the container to /app
 WORKDIR /app
 
-# Install ffmpeg in the container
+# Install ffmpeg
 RUN apt-get update && apt-get install -y ffmpeg
 
-# Copy package.json and package-lock.json into the working directory
+# Copy package.json and package-lock.json
 COPY package*.json ./
 
-# Install any needed packages specified in package.json
+# Install dependencies (including ts-node as a local dev dep)
 RUN npm install
 
-# Copy app source inside the docker image
+# Install ts-node and typescript globally so "npm start" works --- w teorii to jest fix problemów
+RUN npm install -g ts-node typescript
+
+# Copy the rest of the app
 COPY . .
 
-# Make port 3000 available outside this container
-EXPOSE 3000
+# Cloud Run requires listening on this port
+EXPOSE 8080
 
-# Define the command to run your app using CMD (only one CMD allowed)
-CMD [ "npm", "start" ]
+# Start app using ts-node
+CMD ["npm", "start"]
